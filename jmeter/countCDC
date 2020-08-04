@@ -1,0 +1,11 @@
+#bin/bash/
+
+echo "Inserts"
+mysql -h $RDS_HOST -u master -p$MYSQL_PWD -e "use emptest; select * from insert_count_cdc;"
+echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+echo "Updates:"
+mysql -h $RDS_HOST -u master -p$MYSQL_PWD -e "use emptest; select * from update_count_cdc;"
+echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+echo "Deletes:"
+mysql -h $RDS_HOST -u master -p$MYSQL_PWD -e "use emptest; select * from delete_count_cdc;"
+echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
