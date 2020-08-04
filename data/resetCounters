@@ -1,0 +1,5 @@
+#bin/bash/
+
+mysql -h $RDS_HOST -u etltest4 -ptest1234 -e "use emptest; update insert_count_cdc set count=0;"
+mysql -h $RDS_HOST -u etltest4 -ptest1234 -e "use emptest; update delete_count_cdc set count=0;"
+mysql -h $RDS_HOST -u etltest4 -ptest1234 -e "use emptest; update update_count_cdc set count=0;"
