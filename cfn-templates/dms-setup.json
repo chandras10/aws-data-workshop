@@ -1,0 +1,653 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Mappings": {
+        "AWSAMIRegionMap": {
+            "ap-south-1": {
+                "AMI": "ami-0c20a67db6e1c7258"
+            }
+        }
+    },
+    "Resources": {
+        "datalabS3BUCKET": {
+          "Type": "AWS::S3::Bucket",
+          "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-vpc-ec2-sn"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+           }
+        },
+        "datalabS3POLICY": {
+          "Type": "AWS::IAM::Policy",
+          "Properties": {
+            "PolicyName": "DataExtractLabS3Policy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:DeleteObject"
+                  ],
+                  "Resource": [
+                                {
+                                  "Fn::Join": [
+                                        "",
+                                            [
+                                              {
+                                                "Fn::GetAtt": [
+                                                    "datalabS3BUCKET",
+                                                      "Arn"
+                                                    ]
+                                                },
+                                                "/*"
+                                            ]
+                                        ]
+                                    }
+                                ]
+                            },
+                {
+                    "Effect": "Allow",
+                          "Action": [
+                              "s3:ListBucket"
+                                ],
+                                "Resource": [
+                                    {
+                                        "Fn::GetAtt": [
+                                            "datalabS3BUCKET",
+                                            "Arn"
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+            "Roles": [
+              {
+                "Ref": "datalabDMSS3ROLE"
+              }
+            ]
+          }
+        },
+        "datalabDMSS3ROLE": {
+          "Type": "AWS::IAM::Role",
+          "Properties": {
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": [
+                      "dms.amazonaws.com"
+                    ]
+                  },
+                  "Action": [
+                    "sts:AssumeRole"
+                  ]
+                }
+              ]
+            },
+            "Path": "/"
+          }
+        },
+        "datalabVPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": "10.0.0.0/16",
+                "InstanceTenancy": "default",
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-vpc"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "datalabEC2SUBNET": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "10.0.0.0/24",
+                "AvailabilityZone": {
+                    "Fn::Select": [0, { "Fn::GetAZs" : "" }]
+                },
+                "VpcId": {
+                    "Ref": "datalabVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-vpc-ec2-sn"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "datalabRDSSUBNET1": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "10.0.1.0/24",
+                "AvailabilityZone": {
+                    "Fn::Select": [0, { "Fn::GetAZs" : "" }]
+                },
+                "VpcId": {
+                    "Ref": "datalabVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-rds-sn-1"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "datalabRDSSUBNET2": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "10.0.2.0/24",
+                "AvailabilityZone": {
+                    "Fn::Select": [1, { "Fn::GetAZs" : "" }]
+                },
+                "VpcId": {
+                "Ref": "datalabVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-vpc-rds-sn-2"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "datalabIGW": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-igw"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "datalabDHCPOPT": {
+            "Type": "AWS::EC2::DHCPOptions",
+            "Properties": {
+                "DomainName": "ec2.internal",
+                "DomainNameServers": [
+                    "AmazonProvidedDNS"
+                ]
+            }
+        },
+        "datalabROUTETBL": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "datalabVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-vpc-rt"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "datalabVPCESSM" : {
+           "Type" : "AWS::EC2::VPCEndpoint",
+           "Properties" : {
+           "ServiceName" : { "Fn::Sub": "com.amazonaws.${AWS::Region}.ssm" },
+           "VpcId" : {"Ref" : "datalabVPC"},
+           "SubnetIds": [ { "Ref" : "datalabEC2SUBNET"}],
+           "SecurityGroupIds": [ { "Ref" : "datalabEC2SG"}],
+           "VpcEndpointType": "Interface"
+         }
+        },
+        "datalabVPCEEC2MSGS" : {
+           "Type" : "AWS::EC2::VPCEndpoint",
+           "Properties" : {
+           "ServiceName" : { "Fn::Sub": "com.amazonaws.${AWS::Region}.ec2messages" },
+           "VpcId" : {"Ref" : "datalabVPC"},
+           "SubnetIds": [ { "Ref" : "datalabEC2SUBNET"}],
+           "SecurityGroupIds": [ { "Ref" : "datalabEC2SG"}],
+           "VpcEndpointType": "Interface"
+         }
+        },
+        "datalabVPCESSMMSGS" : {
+           "Type" : "AWS::EC2::VPCEndpoint",
+           "Properties" : {
+           "ServiceName" : { "Fn::Sub": "com.amazonaws.${AWS::Region}.ssmmessages" },
+           "VpcId" : {"Ref" : "datalabVPC"},
+           "SubnetIds": [ { "Ref" : "datalabEC2SUBNET"}],
+           "SecurityGroupIds": [ { "Ref" : "datalabEC2SG"}],
+           "VpcEndpointType": "Interface"
+         }
+        },
+        "datalabEC2ROLE": {
+         "Type": "AWS::IAM::Role",
+         "Properties": {
+            "AssumeRolePolicyDocument": {
+               "Version" : "2012-10-17",
+               "Statement": [ {
+                  "Effect": "Allow",
+                  "Principal": {
+                     "Service": [ "ec2.amazonaws.com" ]
+                  },
+                  "Action": [ "sts:AssumeRole" ]
+               } ]
+            },
+            "Path": "/",
+            "ManagedPolicyArns":[
+                "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM",
+                "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+                "arn:aws:iam::aws:policy/AWSCodeCommitReadOnly"
+            ]
+         }
+        },
+        "datalabEC2INSTANCEPROFILE": {
+         "Type": "AWS::IAM::InstanceProfile",
+         "Properties": {
+            "Path": "/",
+            "Roles": [ {
+               "Ref": "datalabEC2ROLE"
+            } ]
+         }
+        },
+        "datalabEC2INSTANCE": {
+            "Type": "AWS::EC2::Instance",
+            "DependsOn": "datalabRDSMYSQL1",
+            "Properties": {
+                "DisableApiTermination": "false",
+                "InstanceInitiatedShutdownBehavior": "stop",
+                "EbsOptimized": "true",
+                "ImageId": { "Fn::FindInMap" : [ "AWSAMIRegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
+                "InstanceType": "t3.2xlarge",
+                "IamInstanceProfile": { "Ref": "datalabEC2INSTANCEPROFILE"},
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash -xe\n",
+                                "yum update -y\n",
+                                "echo 'AWS CLI V2 Install'\n",
+                                "sudo yum install -y unzip\n",
+                                "cd /tmp\n",
+                                "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'\n",
+                                "unzip awscliv2.zip\n",
+                                "./aws/install --update\n",
+                                "rm -rf /tmp/awscliv1.zip /tmp/aws\n",
+                                "yum install -y wget\n",
+                                "wget https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm\n",
+                                "yum localinstall -y https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm\n",
+                                "yum install -y mysql-community-client\n",
+                                "yum install -y git\n",
+                                "mkdir -p /home/ec2-user/workshop\n",
+                                "cd /home/ec2-user/workshop\n",
+                                "git clone https://github.com/chandras10/aws-data-workshop.git\n",
+                                "cd /home/ec2-user/workshop/aws-data-workshop/data/mysql/sampledb/v1/\n",
+                                "export MYSQL_PWD=test1234\n",
+                                "export RDS_HOST=",
+                                {"Fn::GetAtt":["datalabRDSMYSQL1","Endpoint.Address"]},
+                                "\n",
+                                "nohup mysql --host=${RDS_HOST} --user=master < install-rds.sql >& ~/install.out &\n",
+                                "cd /home/ec2-user\n",
+                                "amazon-linux-extras install java-openjdk11 -y\n",
+                                "yum install java-1.8.0-openjdk -y\n",
+                                "cd /home/ec2-user/workshop/aws-data-workshop/jmeter\n",
+                                "wget http://apachemirror.wuchna.com//jmeter/binaries/apache-jmeter-5.3.tgz\n",
+                                "tar xvzf apache-jmeter-5.3.tgz\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                },
+                "Monitoring": "false",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "DataExtractionWorkshop-EC2-Instance"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ],
+                "NetworkInterfaces": [
+                    {
+                        "DeleteOnTermination": "true",
+                        "Description": "Primary network interface",
+                        "DeviceIndex": 0,
+                        "SubnetId": {
+                            "Ref": "datalabEC2SUBNET"
+                        },
+                        "PrivateIpAddresses": [
+                            {
+                                "PrivateIpAddress": "10.0.0.40",
+                                "Primary": "true"
+                            }
+                        ],
+                        "GroupSet": [
+                            {
+                                "Ref": "datalabEC2SG"
+                            }
+                        ],
+                        "AssociatePublicIpAddress": "true"
+                    }
+                ]
+            }
+        },
+        "datalabRDSMYSQL1": {
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "AllocatedStorage": "100",
+                "AllowMajorVersionUpgrade": "false",
+                "AutoMinorVersionUpgrade": "true",
+                "DBInstanceClass": "db.m4.large",
+		        "DBInstanceIdentifier": "datalabinstance",
+                "Port": "3306",
+                "PubliclyAccessible": "true",
+                "StorageType": "gp2",
+                "BackupRetentionPeriod": "7",
+                "MasterUsername": "master",
+                "MasterUserPassword": "test1234",
+                "PreferredBackupWindow": "04:00-04:30",
+                "PreferredMaintenanceWindow": "sun:05:20-sun:05:50",
+                "DBName": "dms_sample",
+                "Engine": "MySQL",
+                "EngineVersion": "5.7.30",
+                "DBSubnetGroupName": {
+                    "Ref": "datalabRDSSUBNETGRP1"
+                },
+                "DBParameterGroupName": {
+                    "Ref": "datalabRDSPARMGRP1"
+                },
+                "VPCSecurityGroups": [
+                    {
+                        "Ref": "datalabRDSSG"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "data-ext-lab-rds-mysql"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "datalabRDSSUBNETGRP1": {
+            "Type": "AWS::RDS::DBSubnetGroup",
+            "Properties": {
+                "DBSubnetGroupDescription": "RDS MySQL Subnet Group",
+                "SubnetIds": [
+                    {
+                        "Ref": "datalabRDSSUBNET1"
+                    },
+                    {
+                        "Ref": "datalabRDSSUBNET2"
+                    }
+                ]
+            }
+        },
+        "datalabRDSPARMGRP1": {
+            "Type": "AWS::RDS::DBParameterGroup",
+            "Properties": {
+              "Description": "Parameters for Sample MySQL Database",
+              "Family": "mysql5.7",
+              "Parameters": {
+                "autocommit" : "1",
+                "general_log" : "1",
+                "slow_query_log": "1",
+                "long_query_time": "2",
+                "log_output": "FILE",
+                "binlog_format": "ROW",
+                "binlog_checksum": "NONE",
+                "old_passwords" : "0"
+              }
+            }
+        },
+        "datalabEC2SG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "EC2 Security Group",
+                "VpcId": {
+                    "Ref": "datalabVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "ec2-sg"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+
+            }
+        },
+        "datalabRDSSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "RDS Security Group",
+                "VpcId": {
+                    "Ref": "datalabVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "rds-sg"
+                    },
+                    {
+                        "Key": "Project",
+                        "Value": "Data Extraction Workshop"
+                    }
+                ]
+            }
+        },
+        "gw1": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "datalabVPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "datalabIGW"
+                }
+            }
+        },
+        "subnetroute1": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "datalabROUTETBL"
+                },
+                "SubnetId": {
+                    "Ref": "datalabRDSSUBNET1"
+                }
+            }
+        },
+        "subnetroute2": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "datalabROUTETBL"
+                },
+                "SubnetId": {
+                    "Ref": "datalabRDSSUBNET2"
+                }
+            }
+        },
+        "subnetroute3": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "datalabROUTETBL"
+                },
+                "SubnetId": {
+                    "Ref": "datalabEC2SUBNET"
+                }
+            }
+        },
+        "route1": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "RouteTableId": {
+                    "Ref": "datalabROUTETBL"
+                },
+                "GatewayId": {
+                    "Ref": "datalabIGW"
+                }
+            },
+            "DependsOn": "gw1"
+        },
+        "dchpassoc1": {
+            "Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "datalabVPC"
+                },
+                "DhcpOptionsId": {
+                    "Ref": "datalabDHCPOPT"
+                }
+            }
+        },
+        "ingress1": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "datalabEC2SG"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "22",
+                "ToPort": "22",
+                "CidrIp": "0.0.0.0/0"
+            }
+        },
+        "ingress2": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "datalabRDSSG"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "3306",
+                "ToPort": "3306",
+                "SourceSecurityGroupId": {
+                    "Ref": "datalabEC2SG"
+                },
+                "SourceSecurityGroupOwnerId": "649225637812"
+            }
+        },
+        "egress1": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "datalabEC2SG"
+                },
+                "IpProtocol": "-1",
+                "CidrIp": "0.0.0.0/0"
+            }
+        },
+        "egress2": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "datalabRDSSG"
+                },
+                "IpProtocol": "-1",
+                "CidrIp": "0.0.0.0/0"
+            }
+        }
+    },
+     "Outputs":{
+        "S3Bucket": {
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "https://",
+                        {
+                            "Fn::GetAtt": [
+                                "datalabS3BUCKET",
+                                "DomainName"
+                            ]
+                        }
+                    ]
+                ]
+            },
+            "Description": "Name of S3 bucket to hold website content"
+        },
+        "VPCID": {
+            "Description": "Lab VPC",
+            "Value": {
+                "Ref" : "datalabVPC"
+            }
+        },
+        "DBInstanceEndpoint":{
+            "Description": "RDS MySQL Instance Endpoint",
+            "Value": {
+                 "Fn::GetAtt" : [ "datalabRDSMYSQL1", "Endpoint.Address" ]
+            }
+        },
+        "EC2Instance" : {
+            "Value" : { "Ref" : "datalabEC2INSTANCE" },
+            "Description" : "Server Domain Name"
+        }
+    },
+    "Description": "Data Extraction Workshop.",
+    "Metadata": {
+        "AWS::CloudFormation::Designer": {
+            "a79fb943-c167-4e59-8eda-911d4acc331f": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 810,
+                    "y": 390
+                },
+                "z": 1,
+                "embeds": []
+            }
+        }
+    }
+}

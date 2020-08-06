@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: An AWS Serverless Specification template describing your function.
+Parameters:
+  RdsHost:
+    Type: String
+    Description: "Enter RDS MySQL Endpoint"
+  RdsUserId:
+    Type: String
+    Description: "Enter RDS MySQL UserId"
+    Default: "master"
+  RdsPasswd:
+    Type: String
+    Description: "Enter RDS MySQL Passwd"
+  RdsDatabase:
+    Type: String
+    Description: "Enter RDS MySQL Database Name"
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: "Security Group IDs that Lambda will use"
+  VpcSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "VPC Subnet IDs that Lambda will use (min 2 for HA)"
+Resources:
+  PyMySQLLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: pymysql
+      Description: PyMySQL Lambda Layer
+      ContentUri: ../code/lambda-layer-pymsql.zip
+      CompatibleRuntimes:
+        - python3.6
+        - python3.7
+        - python3.8
+      RetentionPolicy: Delete
+  DmsCdcLambdaFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: connectdb.main
+      Runtime: python3.6
+      CodeUri: ../code/lambda-mysql-cdc.zip
+      Description: Lambda performing CRUD operations on RDS-MySQL database
+      MemorySize: 512
+      Timeout: 306
+      Layers: 
+        - !Ref PyMySQLLayer
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref VpcSubnetIds
+      Events:
+        Api1:
+          Type: Api
+          Properties:
+            Path: /insert
+            Method: DELETE
+        Api2:
+          Type: Api
+          Properties:
+            Path: /insert
+            Method: POST
+        Api3:
+          Type: Api
+          Properties:
+            Path: /insert
+            Method: PATCH
+      Role: !GetAtt RootRole.Arn
+      Environment:
+        Variables:
+          db_name: !Ref RdsDatabase
+          name: !Ref RdsUserId
+          password: !Ref RdsPasswd
+          rds_host: !Ref RdsHost
+  RootRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Principal:
+                 Service:
+                  - "lambda.amazonaws.com"
+                Action:
+                  - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: "Allow"
+              Action: "*"
+              Resource: "*"
