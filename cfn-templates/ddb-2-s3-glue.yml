@@ -1,0 +1,93 @@
+Description: Export a DynamoDB table to S3 with a Glue Job
+Parameters:
+  S3BucketNameForExport:
+    Description: S3 bucket name to store FullDataLoad(FDL) from Dynamo DB.
+    Type: String
+    Default: 'dynamodb-export-${AWS::Region}-${AWS::AccountId}'
+  TableName:
+    Type: String
+    Description: DynamoDB Table Name to export
+    Default: 'SingleTable'
+  MaxConsumedReadThroughput:
+    Type: Number
+    Description: The maximum amount of Read Capacity Units the export is allowed to consumed expressed as a percentage
+    MinValue: 0.001
+    MaxValue: 1.0
+    Default: 0.2
+  OutputFormat:
+    Type: String
+    Description: Output format of the export. One of avro, csv, json, orc, parquet, or xml.
+    AllowedValues:
+    - json
+    Default: 'json'
+  GlueETLCodeBucket:
+    Description: Glue ETL Script location in S3
+    Type: String
+    Default: 'dynamodb-export-${AWS::Region}-${AWS::AccountId}'
+Resources:
+  ExportConverterGlueJob:
+    Type: "AWS::Glue::Job"
+    Properties:
+      Name:
+        Fn::Sub:
+        - "${Name}ExportTo${OutputFormat}"
+        - Name:
+            Ref: TableName
+          OutputFormat:
+            Ref: OutputFormat
+      Role:
+        Ref: GlueCrawlerAndJobRole
+      MaxRetries: 0
+      GlueVersion: 1.0
+      Description:
+        Fn::Sub:
+        - Exports a DynamoDB table to ${OutputFormat}
+        - OutputFormat:
+            Ref: OutputFormat
+      Command:
+        Name: "glueetl"
+        PythonVersion: 3
+        ScriptLocation: !Join 
+          - ''
+          - - 's3://'
+            - !Ref GlueETLCodeBucket
+            - '/dynamoDBToS3-FDL-GlueJob-code.py'
+      AllocatedCapacity: 2
+      ExecutionProperty:
+        MaxConcurrentRuns: 2
+      DefaultArguments:
+        "--TempDir":
+          Fn::Sub:
+          - "s3://${Bucket}/glue-temp-dir"
+          - Bucket: !Ref S3BucketNameForExport
+        "--table_name" :
+           Ref: TableName
+        "--output_prefix":
+          Fn::Sub:
+              - "s3://${Bucket}/${OutputFormat}/${TableName}/fdl"
+              - Bucket: !Ref S3BucketNameForExport
+                TableName:
+                  Ref: TableName
+                OutputFormat:
+                  Ref: OutputFormat
+        "--read_percentage":
+          Ref: MaxConsumedReadThroughput
+        "--output_format":
+          Ref: OutputFormat
+  GlueCrawlerAndJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      # Referenced the following documentation while creating this IAM Role
+      # http://docs.aws.amazon.com/glue/latest/dg/create-an-iam-role.html
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: glue.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+      - arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess
