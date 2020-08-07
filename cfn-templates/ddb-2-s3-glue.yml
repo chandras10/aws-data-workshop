@@ -51,7 +51,6 @@ Resources:
           - ''
           - - 's3://'
             - !Ref GlueETLCodeBucket
-            - '/dynamoDBToS3-FDL-GlueJob-code.py'
       AllocatedCapacity: 2
       ExecutionProperty:
         MaxConcurrentRuns: 2
